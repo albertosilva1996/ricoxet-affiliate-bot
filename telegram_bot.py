@@ -129,43 +129,45 @@ Envie um link para começar! 🚀
         video_extractor.cleanup_temp_files()
         await update.message.reply_text("✅ Arquivos temporários limpos com sucesso!")
     
+
+
+
 async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handler para links de produtos - CORRIGIDO E SEM ERROS"""
+        """Handler para links - ENTREGA TUDO: VÍDEO, ARTE E LEGENDA"""
         url = update.message.text.strip()
         
         if not url.startswith('http'):
-            await update.message.reply_text("❌ Isso não parece um link válido. Envie um link da Shopee, TikTok ou Instagram.")
+            await update.message.reply_text("❌ Envie um link válido da Shopee, TikTok ou Instagram.")
             return
         
-        processing_msg = await update.message.reply_text("⏳ Processando seu kit de vendas... Segura aí! 🚀")
+        processing_msg = await update.message.reply_text("⏳ Preparando seu kit de vendas... Segura aí! 🚀")
         
         try:
             platform = video_extractor.identify_platform(url)
-            
             if platform == 'unknown':
-                await processing_msg.edit_text("❌ Plataforma não reconhecida. Use links da Shopee, TikTok ou Instagram.")
+                await processing_msg.edit_text("❌ Plataforma não reconhecida.")
                 return
 
             await processing_msg.edit_text(f"🔍 Extraindo conteúdo do {platform.upper()}...")
             product_data = video_extractor.extract_video(url)
             
             if not product_data:
-                await processing_msg.edit_text("❌ Não consegui baixar os dados desse link. Tente outro!")
+                await processing_msg.edit_text("❌ Não consegui baixar os dados desse link.")
                 return
 
-            # Envio do Vídeo
+            # 1. Enviar o Vídeo primeiro
             video_path = product_data.get('video_path')
             if video_path and Path(video_path).exists():
                 await processing_msg.edit_text("📹 Enviando vídeo sem marca d'água...")
                 with open(video_path, 'rb') as video_file:
                     await update.message.reply_video(video=video_file, caption="✅ Vídeo pronto!")
 
-            # Geração de Arte e Legenda
-            await processing_msg.edit_text("🎨 Criando arte e hashtags virais...")
+            # 2. Gerar a Arte para Stories e Legenda
+            await processing_msg.edit_text("🎨 Criando arte e legenda viral...")
             
             image_path = image_generator.generate_story_image(
                 product_image_url=product_data.get('image_url', ''),
-                product_name=product_data.get('title', 'Oferta do Dia'),
+                product_name=product_data.get('title', 'Oferta Especial'),
                 current_price=product_data.get('price', 0),
                 original_price=product_data.get('original_price', 0),
                 affiliate_link="Link na Bio!"
@@ -194,18 +196,17 @@ async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
             await processing_msg.delete()
 
         except Exception as e:
-            logger.error(f"Erro geral: {e}")
+            logger.error(f"Erro no processamento: {e}")
             if processing_msg:
                 try:
-                    await processing_msg.edit_text("❌ Erro ao processar. Tente novamente em instantes.")
+                    await processing_msg.edit_text("❌ Ocorreu um erro. Tente novamente.")
                 except:
                     pass
-    
+
     def run(self):
         """Inicia o bot"""
         logger.info("🚀 Bot iniciado!")
         self.app.run_polling()
-
 
 def main():
     """Função principal"""
