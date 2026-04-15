@@ -11,6 +11,27 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.error import TelegramError
 
+import os
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot Online!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Chame isso antes de iniciar o bot
+keep_alive()
+
+
 from video_extractor import VideoExtractor
 from image_generator import StoryImageGenerator
 from hashtag_generator import HashtagGenerator
