@@ -129,77 +129,77 @@ Envie um link para começar! 🚀
         video_extractor.cleanup_temp_files()
         await update.message.reply_text("✅ Arquivos temporários limpos com sucesso!")
     
-    async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handler para links de produtos - AGORA ENTREGANDO TUDO"""
+async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handler para links de produtos - CORRIGIDO E SEM ERROS"""
         url = update.message.text.strip()
         
         if not url.startswith('http'):
-            await update.message.reply_text("❌ Envie um link válido da Shopee, TikTok ou Instagram.")
+            await update.message.reply_text("❌ Isso não parece um link válido. Envie um link da Shopee, TikTok ou Instagram.")
             return
         
-        processing_msg = await update.message.reply_text("⏳ Processando... Preparando seu kit de vendas! 🚀")
+        processing_msg = await update.message.reply_text("⏳ Processando seu kit de vendas... Segura aí! 🚀")
         
         try:
             platform = video_extractor.identify_platform(url)
+            
             if platform == 'unknown':
-                await processing_msg.edit_text("❌ Plataforma não reconhecida.")
+                await processing_msg.edit_text("❌ Plataforma não reconhecida. Use links da Shopee, TikTok ou Instagram.")
                 return
 
-            # 1. EXTRAÇÃO
-            await processing_msg.edit_text(f"🔍 Buscando conteúdo no {platform.upper()}...")
+            await processing_msg.edit_text(f"🔍 Extraindo conteúdo do {platform.upper()}...")
             product_data = video_extractor.extract_video(url)
             
             if not product_data:
-                await processing_msg.edit_text("❌ Não consegui extrair os dados. Tente outro link.")
+                await processing_msg.edit_text("❌ Não consegui baixar os dados desse link. Tente outro!")
                 return
 
-            # 2. ENVIAR VÍDEO (Sempre que disponível)
+            # Envio do Vídeo
             video_path = product_data.get('video_path')
             if video_path and Path(video_path).exists():
                 await processing_msg.edit_text("📹 Enviando vídeo sem marca d'água...")
                 with open(video_path, 'rb') as video_file:
-                    await update.message.reply_video(video=video_file, caption="✅ Vídeo pronto para viralizar!")
+                    await update.message.reply_video(video=video_file, caption="✅ Vídeo pronto!")
 
-            # 3. GERAR ARTE E LEGENDA (Para Shopee ou se tiver dados de título/preço)
-            await processing_msg.edit_text("🎨 Gerando sua arte e legenda personalizada...")
+            # Geração de Arte e Legenda
+            await processing_msg.edit_text("🎨 Criando arte e hashtags virais...")
             
-            # Gera a imagem para Stories
             image_path = image_generator.generate_story_image(
                 product_image_url=product_data.get('image_url', ''),
-                product_name=product_data.get('title', 'Produto Incrível'),
+                product_name=product_data.get('title', 'Oferta do Dia'),
                 current_price=product_data.get('price', 0),
                 original_price=product_data.get('original_price', 0),
-                affiliate_link="Clique no link da Bio!" 
+                affiliate_link="Link na Bio!"
             )
 
-            # Gera Legenda e Hashtags
             content = hashtag_generator.generate_full_post(
                 product_name=product_data.get('title', 'Produto'),
                 current_price=product_data.get('price', 0),
                 original_price=product_data.get('original_price', 0)
             )
 
-            # Envia a Imagem
             if image_path and Path(image_path).exists():
                 with open(image_path, 'rb') as img_file:
                     await update.message.reply_photo(
                         photo=img_file,
-                        caption="🎨 **Sugestão de Story**\nPoste com o seu link de afiliado!",
+                        caption="🎨 **Sugestão para Stories**",
                         parse_mode='Markdown'
                     )
 
-            # Envia a Legenda e as Hashtags Virais
             await update.message.reply_text(
-                f"📝 **SUGESTÃO DE LEGENDA:**\n\n{content['caption']}\n\n"
-                f"🚀 **HASHTAGS VIRAIS:**\n{ ' '.join(content['hashtags']) } #tiktokcriador",
+                f"📝 **LEGENDA PRONTA:**\n\n{content['caption']}\n\n"
+                f"🚀 **HASHTAGS:**\n{ ' '.join(content['hashtags']) } #tiktokcriador",
                 parse_mode='Markdown'
             )
 
             await processing_msg.delete()
 
         except Exception as e:
-            logger.error(f"Erro: {e}")
-            await update.message.reply_text("❌ Ocorreu um erro ao gerar o kit completo. Tente novamente.")
+            logger.error(f"Erro geral: {e}")
+            if processing_msg:
+                try:
+                    await processing_msg.edit_text("❌ Erro ao processar. Tente novamente em instantes.")
+                except:
+                    pass
     
     def run(self):
         """Inicia o bot"""
