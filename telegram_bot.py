@@ -130,122 +130,76 @@ Envie um link para começar! 🚀
         await update.message.reply_text("✅ Arquivos temporários limpos com sucesso!")
     
     async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handler para links de produtos"""
+        """Handler para links de produtos - AGORA ENTREGANDO TUDO"""
         url = update.message.text.strip()
         
-        # Validar se é uma URL
         if not url.startswith('http'):
-            await update.message.reply_text(
-                "❌ Isso não parece ser um link válido.\n\n"
-                "Envie um link de produto da Shopee, TikTok ou Instagram."
-            )
+            await update.message.reply_text("❌ Envie um link válido da Shopee, TikTok ou Instagram.")
             return
         
-        # Enviar mensagem de processamento
-        processing_msg = await update.message.reply_text(
-            "⏳ Processando seu link...\n\n"
-            "Isso pode levar alguns segundos."
-        )
+        processing_msg = await update.message.reply_text("⏳ Processando... Preparando seu kit de vendas! 🚀")
         
         try:
-            # Identificar plataforma
             platform = video_extractor.identify_platform(url)
-            
             if platform == 'unknown':
-                await processing_msg.edit_text(
-                    "❌ Plataforma não reconhecida.\n\n"
-                    "Envie um link de: Shopee, TikTok ou Instagram"
-                )
+                await processing_msg.edit_text("❌ Plataforma não reconhecida.")
                 return
-            
-            # Extrair dados
-            await processing_msg.edit_text(
-                f"🔍 Extraindo dados do {platform.upper()}..."
-            )
-            
+
+            # 1. EXTRAÇÃO
+            await processing_msg.edit_text(f"🔍 Buscando conteúdo no {platform.upper()}...")
             product_data = video_extractor.extract_video(url)
             
             if not product_data:
-                await processing_msg.edit_text(
-                    "❌ Não consegui processar este link.\n\n"
-                    "Verifique se:\n"
-                    "• O link está correto\n"
-                    "• O produto/vídeo ainda existe\n"
-                    "• Você tem conexão com a internet"
-                )
+                await processing_msg.edit_text("❌ Não consegui extrair os dados. Tente outro link.")
                 return
+
+            # 2. ENVIAR VÍDEO (Sempre que disponível)
+            video_path = product_data.get('video_path')
+            if video_path and Path(video_path).exists():
+                await processing_msg.edit_text("📹 Enviando vídeo sem marca d'água...")
+                with open(video_path, 'rb') as video_file:
+                    await update.message.reply_video(video=video_file, caption="✅ Vídeo pronto para viralizar!")
+
+            # 3. GERAR ARTE E LEGENDA (Para Shopee ou se tiver dados de título/preço)
+            await processing_msg.edit_text("🎨 Gerando sua arte e legenda personalizada...")
             
-            # Gerar conteúdo
-            await processing_msg.edit_text("🎨 Gerando arte para Stories...")
-            
-            # Se for Shopee, gerar imagem
-            if platform == 'shopee':
-                image_path = image_generator.generate_story_image(
-                    product_image_url=product_data.get('image_url', ''),
-                    product_name=product_data.get('title', 'Produto'),
-                    current_price=product_data.get('price', 0),
-                    original_price=product_data.get('original_price', 0),
-                    affiliate_link="s.shopee.com.br"
-                )
-                
-                # Gerar hashtags e legenda
-                await processing_msg.edit_text("📝 Gerando hashtags e legenda...")
-                
-                content = hashtag_generator.generate_full_post(
-                    product_name=product_data.get('title', 'Produto'),
-                    current_price=product_data.get('price', 0),
-                    original_price=product_data.get('original_price', 0)
-                )
-                
-                # Enviar imagem
-                if image_path and Path(image_path).exists():
-                    with open(image_path, 'rb') as img_file:
-                        await update.message.reply_photo(
-                            photo=img_file,
-                            caption="🎨 **Imagem para Stories**\n\nPronta para postar!",
-                            parse_mode='Markdown'
-                        )
-                
-                # Enviar legenda e hashtags
-                await update.message.reply_text(
-                    f"📝 **LEGENDA:**\n\n{content['caption']}\n\n"
-                    f"🏷️ **HASHTAGS ({len(content['hashtags'])}):**\n\n"
-                    f"{' '.join(content['hashtags'])}",
-                    parse_mode='Markdown'
-                )
-                
-                # Enviar resumo
-                await update.message.reply_text(
-                    f"✅ **RESUMO DO PRODUTO:**\n\n"
-                    f"📦 {product_data.get('title', 'Produto')}\n"
-                    f"💰 R$ {product_data.get('price', 0):.2f}\n"
-                    f"📉 Desconto: {content['discount_percent']}%\n\n"
-                    f"Pronto para postar! 🚀"
-                )
-            
-            elif platform in ['tiktok', 'instagram']:
-                # Para TikTok e Instagram, apenas enviar o vídeo
-                video_path = product_data.get('video_path')
-                if video_path and Path(video_path).exists():
-                    with open(video_path, 'rb') as video_file:
-                        await update.message.reply_video(
-                            video=video_file,
-                            caption="✅ Vídeo sem marca d'água!\n\nPronto para postar!"
-                        )
-                else:
-                    await update.message.reply_text(
-                        "❌ Não consegui baixar o vídeo.\n\n"
-                        "Tente novamente ou use outro link."
-                    )
-            
-            await processing_msg.delete()
-        
-        except Exception as e:
-            logger.error(f"Erro ao processar link: {e}")
-            await processing_msg.edit_text(
-                f"❌ Erro ao processar: {str(e)[:100]}\n\n"
-                "Tente novamente mais tarde."
+            # Gera a imagem para Stories
+            image_path = image_generator.generate_story_image(
+                product_image_url=product_data.get('image_url', ''),
+                product_name=product_data.get('title', 'Produto Incrível'),
+                current_price=product_data.get('price', 0),
+                original_price=product_data.get('original_price', 0),
+                affiliate_link="Clique no link da Bio!" 
             )
+
+            # Gera Legenda e Hashtags
+            content = hashtag_generator.generate_full_post(
+                product_name=product_data.get('title', 'Produto'),
+                current_price=product_data.get('price', 0),
+                original_price=product_data.get('original_price', 0)
+            )
+
+            # Envia a Imagem
+            if image_path and Path(image_path).exists():
+                with open(image_path, 'rb') as img_file:
+                    await update.message.reply_photo(
+                        photo=img_file,
+                        caption="🎨 **Sugestão de Story**\nPoste com o seu link de afiliado!",
+                        parse_mode='Markdown'
+                    )
+
+            # Envia a Legenda e as Hashtags Virais
+            await update.message.reply_text(
+                f"📝 **SUGESTÃO DE LEGENDA:**\n\n{content['caption']}\n\n"
+                f"🚀 **HASHTAGS VIRAIS:**\n{ ' '.join(content['hashtags']) } #tiktokcriador",
+                parse_mode='Markdown'
+            )
+
+            await processing_msg.delete()
+
+        except Exception as e:
+            logger.error(f"Erro: {e}")
+            await update.message.reply_text("❌ Ocorreu um erro ao gerar o kit completo. Tente novamente.")  )
     
     def run(self):
         """Inicia o bot"""
