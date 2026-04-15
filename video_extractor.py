@@ -22,6 +22,7 @@ class VideoExtractor:
     
     def identify_platform(self, url: str) -> str:
         """Identifica a plataforma do link"""
+        
                 if 'shopee' in url.lower() or 'shp.ee' in url.lower():
             return 'shopee'
 
