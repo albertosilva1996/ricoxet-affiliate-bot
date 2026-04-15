@@ -21,14 +21,13 @@ class VideoExtractor:
         }
     
     def identify_platform(self, url: str) -> str:
-        """Identifica a plataforma do link"""
-        
-                if 'shopee' in url.lower() or 'shp.ee' in url.lower():
+        """Identifica a plataforma do link - CORRIGIDO"""
+        link = url.lower()
+        if 'shopee' in link or 'shp.ee' in link:
             return 'shopee'
-
-        elif 'tiktok' in url.lower():
+        elif 'tiktok' in link:
             return 'tiktok'
-        elif 'instagram' in url.lower() or 'ig' in url.lower():
+        elif 'instagram' in link or 'ig.me' in link:
             return 'instagram'
         return 'unknown'
     
