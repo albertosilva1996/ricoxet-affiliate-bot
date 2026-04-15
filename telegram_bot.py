@@ -199,7 +199,7 @@ Envie um link para começar! 🚀
 
         except Exception as e:
             logger.error(f"Erro: {e}")
-            await update.message.reply_text("❌ Ocorreu um erro ao gerar o kit completo. Tente novamente.")  )
+            await update.message.reply_text("❌ Ocorreu um erro ao gerar o kit completo. Tente novamente.")
     
     def run(self):
         """Inicia o bot"""
