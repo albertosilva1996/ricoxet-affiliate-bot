@@ -130,9 +130,7 @@ Envie um link para começar! 🚀
         await update.message.reply_text("✅ Arquivos temporários limpos com sucesso!")
     
 
-
-
-async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler para links - ENTREGA TUDO: VÍDEO, ARTE E LEGENDA"""
         url = update.message.text.strip()
         
