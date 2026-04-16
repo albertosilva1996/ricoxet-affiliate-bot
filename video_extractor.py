@@ -31,51 +31,56 @@ class VideoExtractor:
         return 'unknown'
 
     def extract_shopee_video(self, url: str) -> Optional[Dict]:
+        """Versão Turbinada - Tenta várias formas de achar o produto"""
         try:
-            # 1. Cria uma sessão para manter os cookies
             session = requests.Session()
             session.headers.update(self.headers)
 
-            # 2. Segue o link curto até virar o link grande
+            # 1. Resolve o link curto
             res = session.get(url, allow_redirects=True, timeout=15)
             final_url = res.url
-            logger.info(f"URL Resolvida: {final_url}")
+            logger.info(f"Link final encontrado: {final_url}")
 
-            # 3. Busca os IDs (shopid e itemid) com um padrão mais forte
-            # Procura por números após o 'i.' ou na estrutura de 'product/'
-            match = re.search(r'i\.(\d+)\.(\d+)', final_url)
-            if not match:
-                match = re.search(r'product/(\d+)/(\d+)', final_url)
+            # 2. Tenta achar os IDs de 3 formas diferentes
+            shop_id, item_id = None, None
             
-            if not match:
-                logger.error("Não foi possível localizar os IDs do produto no link.")
+            # Forma A: Padrão i.123.456
+            match_a = re.search(r'i\.(\d+)\.(\d+)', final_url)
+            # Forma B: Padrão product/123/456
+            match_b = re.search(r'product/(\d+)/(\d+)', final_url)
+            # Forma C: Se for link de "Universal Link"
+            match_c = re.search(r'itemid=(\d+)&shopid=(\d+)', final_url)
+
+            if match_a:
+                shop_id, item_id = match_a.groups()
+            elif match_b:
+                shop_id, item_id = match_b.groups()
+            elif match_c:
+                item_id, shop_id = match_c.groups()
+
+            if not shop_id or not item_id:
+                logger.error("Não encontrei os IDs de nenhuma forma.")
                 return None
 
-            shop_id, item_id = match.groups()
-
-            # 4. Chama a API de detalhes do item
+            # 3. Busca na API
             api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
             api_res = session.get(api_url, timeout=15)
             data = api_res.json().get('data')
 
             if not data:
-                logger.error("API da Shopee não retornou dados.")
                 return None
 
-            # 5. Pega o vídeo e a imagem (usando o ID da imagem principal)
-            video_list = data.get('video_info_list', [])
-            image_id = data.get('image')
-            
+            video_info = data.get('video_info_list', [])
             return {
                 'title': data.get('name'),
                 'price': data.get('price') / 100000,
                 'original_price': data.get('price_before_discount', 0) / 100000,
-                'video_url': video_list[0].get('video_url') if video_list else None,
-                'image_url': f"https://down-br.img.susercontent.com/file/{image_id}" if image_id else None
+                'video_url': video_info[0].get('video_url') if video_info else None,
+                'image_url': f"https://down-br.img.susercontent.com/file/{data.get('image')}"
             }
 
         except Exception as e:
-            logger.error(f"Erro crítico na extração: {e}")
+            logger.error(f"Erro: {e}")
             return None
     
     def extract_tiktok_video(self, url: str) -> Optional[Dict]:
