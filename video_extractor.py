@@ -10,14 +10,19 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class VideoExtractor:
-    def __init__(self):
-        self.temp_dir = Path("/tmp/shopee_bot_videos")
-        self.temp_dir.mkdir(exist_ok=True)
+        def __init__(self):
+        # Garante que a pasta temporária exista para não dar erro de permissão
+        self.temp_dir = Path("/tmp/shopee_videos")
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        # Headers mais robustos para evitar o bloqueio da Shopee
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Referer': 'https://shopee.com.br/'
+            'Referer': 'https://shopee.com.br/',
+            'Origin': 'https://shopee.com.br'
         }
+
 
     def identify_platform(self, url: str) -> str:
         link = url.lower()
