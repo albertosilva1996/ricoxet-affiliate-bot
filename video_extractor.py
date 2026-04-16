@@ -33,15 +33,13 @@ class VideoExtractor:
     def extract_shopee_video(self, url: str) -> Optional[Dict]:
         """Extrai informações da Shopee resolvendo links curtos (br.shp.ee)"""
         try:
-            # 1. Resolve o redirecionamento para pegar o link real (longo)
-            # O 'allow_redirects=True' é o que faz o bot seguir o link curto
+            # 1. Abre o link curto para descobrir o link real
             res = requests.get(url, headers=self.headers, allow_redirects=True, timeout=15)
             final_url = res.url
 
-            # 2. Busca os IDs (shopid e itemid) no link final grande
+            # 2. Busca os IDs no link final grande
             match = re.search(r'i\.(\d+)\.(\d+)', final_url)
             if not match:
-                # Tenta padrão alternativo caso o primeiro falhe
                 match = re.search(r'product/(\d+)/(\d+)', final_url)
             
             if not match:
@@ -50,7 +48,7 @@ class VideoExtractor:
 
             shop_id, item_id = match.groups()
 
-            # 3. Consulta a API oficial da Shopee com os IDs encontrados
+            # 3. Consulta a API oficial da Shopee
             api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
             api_res = requests.get(api_url, headers=self.headers, timeout=15)
             item_data = api_res.json().get('data')
@@ -58,7 +56,7 @@ class VideoExtractor:
             if not item_data:
                 return None
 
-            # 4. Organiza os dados (Vídeo, Título e Preço)
+            # 4. Organiza os dados para o bot enviar
             video_list = item_data.get('video_info_list', [])
             return {
                 'title': item_data.get('name'),
