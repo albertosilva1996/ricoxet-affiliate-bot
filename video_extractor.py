@@ -33,48 +33,43 @@ class VideoExtractor:
         return 'unknown'
     
     def extract_shopee_video(self, url: str) -> Optional[Dict]:
-        """Extrai informações de vídeo da Shopee lidando com links curtos"""
+        """Extrai informações da Shopee resolvendo links curtos (br.shp.ee)"""
         try:
-            # 1. Seguir o link se for encurtado (br.shp.ee)
-            response = requests.get(url, allow_redirects=True, headers=self.headers, timeout=10)
-            final_url = response.url  # Aqui pegamos o link completo (grande)
+            # 1. Faz o bot "clicar" no link e esperar o redirecionamento
+            res = requests.get(url, headers=self.headers, allow_redirects=True, timeout=15)
+            final_url = res.url
 
-            # 2. Extrair shop_id e item_id da URL final
+            # 2. Busca os IDs (shopid e itemid) no link final grande
             match = re.search(r'i\.(\d+)\.(\d+)', final_url)
             if not match:
-                # Tenta outro padrão comum da Shopee
                 match = re.search(r'product/(\d+)/(\d+)', final_url)
-                
+            
             if not match:
-                logger.error(f"Não foi possível encontrar IDs na URL: {final_url}")
+                logger.error(f"Não encontrei IDs na URL final: {final_url}")
                 return None
 
             shop_id, item_id = match.groups()
 
-            # 3. Chamar a API interna da Shopee para pegar os dados reais
+            # 3. Consulta a API da Shopee com os IDs reais
             api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
-            api_response = requests.get(api_url, headers=self.headers, timeout=10)
-            data = api_response.json()
+            api_res = requests.get(api_url, headers=self.headers, timeout=15)
+            item_data = api_res.json().get('data')
 
-            if not data.get('data'):
+            if not item_data:
                 return None
 
-            item = data['data']
-            
-            # Pega o vídeo (se existir)
-            video_info = item.get('video_info_list', [])
-            video_url = video_info[0].get('video_url') if video_info else None
-
+            # 4. Organiza tudo para o bot enviar ao Telegram
+            video_list = item_data.get('video_info_list', [])
             return {
-                'title': item.get('name'),
-                'price': item.get('price') / 100000, # Converte centavos da Shopee
-                'original_price': item.get('price_before_discount') / 100000,
-                'video_url': video_url,
-                'image_url': f"https://down-br.img.susercontent.com/file/{item.get('image')}"
+                'title': item_data.get('name'),
+                'price': item_data.get('price') / 100000,
+                'original_price': item_data.get('price_before_discount', 0) / 100000,
+                'video_url': video_list[0].get('video_url') if video_list else None,
+                'image_url': f"https://down-br.img.susercontent.com/file/{item_data.get('image')}"
             }
 
         except Exception as e:
-            logger.error(f"Erro ao extrair Shopee: {e}")
+            logger.error(f"Erro ao processar Shopee: {e}")
             return None
     
     def extract_tiktok_video(self, url: str) -> Optional[Dict]:
