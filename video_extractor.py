@@ -32,7 +32,7 @@ class VideoExtractor:
             return 'instagram'
         return 'unknown'
 
-    def extract_shopee_video(self, url: str) -> Optional[Dict]:
+    def extract_video(self, url: str) -> Optional[Dict]:
         """Lógica principal para Shopee (Links curtos, Produtos e Vídeos)"""
         try:
             session = requests.Session()
