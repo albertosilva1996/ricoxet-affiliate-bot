@@ -194,12 +194,8 @@ Envie um link para começar! 🚀
             await processing_msg.delete()
 
         except Exception as e:
-            logger.error(f"Erro no processamento: {e}")
-            if processing_msg:
-                try:
-                    await processing_msg.edit_text("❌ Ocorreu um erro. Tente novamente.")
-                except:
-                    pass
+            logger.error(f"Erro ao processar link: {e}")
+            await processing_msg.edit_text(f"❌ Erro ao processar: {str(e)[:100]}")
 
     def run(self):
         """Inicia o bot"""
