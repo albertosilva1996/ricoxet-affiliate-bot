@@ -1,75 +1,81 @@
 """
 Módulo de extração de vídeos de múltiplas plataformas (Shopee, TikTok, Instagram)
 """
-import os
-import re
 import requests
-import subprocess
+import re
+import logging
+from typing import Optional, Dict
 from pathlib import Path
-from typing import Dict, Optional, Tuple
-from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 class VideoExtractor:
-    """Extrator de vídeos sem marca d'água de múltiplas plataformas"""
-    
-    TEMP_DIR = Path("/tmp/shopee_bot_videos")
-    
     def __init__(self):
-        self.TEMP_DIR.mkdir(exist_ok=True)
+        self.temp_dir = Path("/tmp/shopee_bot_videos")
+        self.temp_dir.mkdir(exist_ok=True)
+        # Headers mais robustos para evitar bloqueio
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://shopee.com.br/'
         }
-    
+
     def identify_platform(self, url: str) -> str:
-        """Identifica a plataforma do link incluindo links curtos"""
         link = url.lower()
         if 'shopee' in link or 'shp.ee' in link:
             return 'shopee'
         elif 'tiktok' in link:
             return 'tiktok'
-        elif 'instagram' in link or 'ig' in link:
+        elif 'instagram' in link or 'ig.me' in link:
             return 'instagram'
         return 'unknown'
-    
-    def extract_shopee_video(self, url: str) -> Optional[Dict]:
-        """Extrai informações da Shopee resolvendo links curtos (br.shp.ee)"""
-        try:
-            # 1. Resolve o redirecionamento para pegar o link real (longo)
-            res = requests.get(url, headers=self.headers, allow_redirects=True, timeout=15)
-            final_url = res.url
 
-            # 2. Busca os IDs (shopid e itemid) no link final
+    def extract_shopee_video(self, url: str) -> Optional[Dict]:
+        try:
+            # 1. Cria uma sessão para manter os cookies
+            session = requests.Session()
+            session.headers.update(self.headers)
+
+            # 2. Segue o link curto até virar o link grande
+            res = session.get(url, allow_redirects=True, timeout=15)
+            final_url = res.url
+            logger.info(f"URL Resolvida: {final_url}")
+
+            # 3. Busca os IDs (shopid e itemid) com um padrão mais forte
+            # Procura por números após o 'i.' ou na estrutura de 'product/'
             match = re.search(r'i\.(\d+)\.(\d+)', final_url)
             if not match:
-                # Tenta padrão alternativo de URL da Shopee
                 match = re.search(r'product/(\d+)/(\d+)', final_url)
             
             if not match:
-                logger.error(f"Não encontrei IDs na URL final: {final_url}")
+                logger.error("Não foi possível localizar os IDs do produto no link.")
                 return None
 
             shop_id, item_id = match.groups()
 
-            # 3. Consulta a API da Shopee com os IDs encontrados
+            # 4. Chama a API de detalhes do item
             api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
-            api_res = requests.get(api_url, headers=self.headers, timeout=15)
-            item_data = api_res.json().get('data')
+            api_res = session.get(api_url, timeout=15)
+            data = api_res.json().get('data')
 
-            if not item_data:
+            if not data:
+                logger.error("API da Shopee não retornou dados.")
                 return None
 
-            # 4. Coleta o vídeo e as imagens
-            video_list = item_data.get('video_info_list', [])
+            # 5. Pega o vídeo e a imagem (usando o ID da imagem principal)
+            video_list = data.get('video_info_list', [])
+            image_id = data.get('image')
+            
             return {
-                'title': item_data.get('name'),
-                'price': item_data.get('price') / 100000,
-                'original_price': item_data.get('price_before_discount', 0) / 100000,
+                'title': data.get('name'),
+                'price': data.get('price') / 100000,
+                'original_price': data.get('price_before_discount', 0) / 100000,
                 'video_url': video_list[0].get('video_url') if video_list else None,
-                'image_url': f"https://down-br.img.susercontent.com/file/{item_data.get('image')}"
+                'image_url': f"https://down-br.img.susercontent.com/file/{image_id}" if image_id else None
             }
 
         except Exception as e:
-            logger.error(f"Erro na extração Shopee: {e}")
+            logger.error(f"Erro crítico na extração: {e}")
             return None
     
     def extract_tiktok_video(self, url: str) -> Optional[Dict]:
