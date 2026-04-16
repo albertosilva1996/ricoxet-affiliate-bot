@@ -33,50 +33,48 @@ class VideoExtractor:
         return 'unknown'
     
     def extract_shopee_video(self, url: str) -> Optional[Dict]:
-        """
-        Extrai informações de vídeo da Shopee
-        Retorna: {video_url, title, price, original_price, image_url}
-        """
+        """Extrai informações de vídeo da Shopee lidando com links curtos"""
         try:
-            # Extrair shop_id e item_id da URL
-            match = re.search(r'i\.(\d+)\.(\d+)', url)
+            # 1. Seguir o link se for encurtado (br.shp.ee)
+            response = requests.get(url, allow_redirects=True, headers=self.headers, timeout=10)
+            final_url = response.url  # Aqui pegamos o link completo (grande)
+
+            # 2. Extrair shop_id e item_id da URL final
+            match = re.search(r'i\.(\d+)\.(\d+)', final_url)
             if not match:
+                # Tenta outro padrão comum da Shopee
+                match = re.search(r'product/(\d+)/(\d+)', final_url)
+                
+            if not match:
+                logger.error(f"Não foi possível encontrar IDs na URL: {final_url}")
                 return None
-            
-            item_id, shop_id = match.groups()
-            
-            # Chamar API interna da Shopee
+
+            shop_id, item_id = match.groups()
+
+            # 3. Chamar a API interna da Shopee para pegar os dados reais
             api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
-            response = requests.get(api_url, headers=self.headers, timeout=10)
-            data = response.json()
-            
-            if data.get('error'):
+            api_response = requests.get(api_url, headers=self.headers, timeout=10)
+            data = api_response.json()
+
+            if not data.get('data'):
                 return None
+
+            item = data['data']
             
-            item_data = data.get('data', {})
-            
-            # Extrair informações do produto
-            product_info = {
-                'title': item_data.get('name', 'Produto'),
-                'price': item_data.get('price', 0) / 100000,  # Shopee retorna em unidades pequenas
-                'original_price': item_data.get('price_before_discount', 0) / 100000,
-                'image_url': item_data.get('image', ''),
-                'video_url': None,
-                'platform': 'shopee'
+            # Pega o vídeo (se existir)
+            video_info = item.get('video_info_list', [])
+            video_url = video_info[0].get('video_url') if video_info else None
+
+            return {
+                'title': item.get('name'),
+                'price': item.get('price') / 100000, # Converte centavos da Shopee
+                'original_price': item.get('price_before_discount') / 100000,
+                'video_url': video_url,
+                'image_url': f"https://down-br.img.susercontent.com/file/{item.get('image')}"
             }
-            
-            # Tentar extrair vídeo
-            video_list = item_data.get('video_info_list', [])
-            if video_list:
-                video_id = video_list[0].get('video_id')
-                if video_id:
-                    # Construir URL do vídeo via CDN da Shopee
-                    product_info['video_url'] = f"https://cv.shopee.com.br/api/v4/video/get_video_url?video_id={video_id}"
-            
-            return product_info
-        
+
         except Exception as e:
-            print(f"Erro ao extrair vídeo Shopee: {e}")
+            logger.error(f"Erro ao extrair Shopee: {e}")
             return None
     
     def extract_tiktok_video(self, url: str) -> Optional[Dict]:
