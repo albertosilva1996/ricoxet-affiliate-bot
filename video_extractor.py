@@ -21,8 +21,9 @@ class VideoExtractor:
         }
     
     def identify_platform(self, url: str) -> str:
-        """Identifica a plataforma do link - CORRIGIDO"""
+        """Identifica a plataforma do link - AGORA ACEITANDO LINKS CURTOS"""
         link = url.lower()
+        # Se tiver 'shopee' OU 'shp.ee', ele entende que é Shopee
         if 'shopee' in link or 'shp.ee' in link:
             return 'shopee'
         elif 'tiktok' in link:
