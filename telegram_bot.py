@@ -30,7 +30,6 @@ def keep_alive():
     t.start()
 
 # --- IMPORTAÇÃO DOS SEUS MÓDULOS ---
-# Certifique-se que esses arquivos existem na mesma pasta
 from video_extractor import VideoExtractor
 from image_generator import StoryImageGenerator
 from hashtag_generator import HashtagGenerator
@@ -70,7 +69,9 @@ class ShopeeAffiliateBot:
         await update.message.reply_text("📚 Envie um link da Shopee, TikTok ou Instagram.")
 
     async def cleanup_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        video_extractor.cleanup_temp_files()
+        # Corrigido para chamar a função correta de limpeza
+        if hasattr(video_extractor, 'cleanup_temp_files'):
+            video_extractor.cleanup_temp_files()
         await update.message.reply_text("✅ Arquivos temporários limpos!")
 
     async def handle_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -87,16 +88,17 @@ class ShopeeAffiliateBot:
                 await processing_msg.edit_text("❌ Plataforma não reconhecida.")
                 return
 
-            product_data = video_extractor.extract_video(url)
+            # CORREÇÃO AQUI: Chamando a função exata que está no seu video_extractor.py
+            product_data = video_extractor.extract_shopee_video(url)
+            
             if not product_data:
                 await processing_msg.edit_text("❌ Não consegui baixar os dados desse link.")
                 return
 
             # Enviar Vídeo
-            video_path = product_data.get('video_path')
-            if video_path and Path(video_path).exists():
-                with open(video_path, 'rb') as video_file:
-                    await update.message.reply_video(video=video_file, caption="✅ Vídeo pronto!")
+            video_url = product_data.get('video_url')
+            if video_url:
+                await update.message.reply_video(video=video_url, caption="✅ Vídeo pronto!")
 
             # Gerar Arte e Legenda
             image_path = image_generator.generate_story_image(
@@ -125,15 +127,17 @@ class ShopeeAffiliateBot:
 
         except Exception as e:
             logger.error(f"Erro: {e}")
-            await processing_msg.edit_text("❌ Erro ao processar.")
+            await processing_msg.edit_text(f"❌ Erro ao processar: {str(e)}")
 
     def run(self):
         logger.info("🚀 Bot iniciado!")
         self.app.run_polling()
 
 def main():
+    # CORREÇÃO AQUI: Sincronizado com a KEY do seu Render
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
+        logger.error("❌ TOKEN NÃO ENCONTRADO! Verifique as Environment Variables no Render.")
         return
     
     keep_alive() # Inicia o Flask para o Render não derrubar o bot
@@ -142,3 +146,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
