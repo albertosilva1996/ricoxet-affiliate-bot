@@ -13,27 +13,72 @@ class VideoExtractor:
     def __init__(self):
         self.temp_dir = Path("/tmp/shopee_bot_videos")
         self.temp_dir.mkdir(exist_ok=True)
-        # Headers atualizados para parecer um navegador real
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Referer': 'https://shopee.com.br/'
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
         }
 
     def identify_platform(self, url: str) -> str:
-        """Identifica se o link é Shopee (curto ou longo), TikTok ou Insta"""
         link = url.lower()
         if 'shopee' in link or 'shp.ee' in link:
             return 'shopee'
         elif 'tiktok' in link:
             return 'tiktok'
-        elif 'instagram' in link or 'ig.me' in link:
+        elif 'instagram' in link or 'ig' in link:
             return 'instagram'
         return 'unknown'
 
     def extract_shopee_video(self, url: str) -> Optional[Dict]:
-        """Abre o link curto e extrai o vídeo e dados do produto"""
         try:
+            session = requests.Session()
+            # 1. Segue o link curto até o destino final
+            res = session.get(url, headers=self.headers, allow_redirects=True, timeout=15)
+            final_url = res.url
+            
+            # 2. CASO A: Se for um link de Shopee Vídeo (sv.shopee...)
+            if 'sv.shopee.com.br' in final_url:
+                logger.info("Detectado link de Shopee Video. Extraindo vídeo direto...")
+                # Pegamos o vídeo direto da página de vídeo
+                video_match = re.search(r'"video_url":"(https://cv\.shopee\.com\.br/[^"]+)"', res.text)
+                if video_match:
+                    video_url = video_match.group(1).replace('\\u002F', '/')
+                    return {
+                        'title': "Vídeo Shopee",
+                        'price': 0, # Vídeos às vezes não mostram o preço direto
+                        'original_price': 0,
+                        'video_url': video_url,
+                        'image_url': "" 
+                    }
+
+            # 3. CASO B: Se for um link de Produto (procura shopid e itemid)
+            match = re.search(r'i\.(\d+)\.(\d+)', final_url)
+            if not match:
+                match = re.search(r'product/(\d+)/(\d+)', final_url)
+            
+            if not match:
+                logger.error(f"Não foi possível localizar IDs de produto na URL: {final_url}")
+                return None
+
+            shop_id, item_id = match.groups()
+            api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
+            api_res = session.get(api_url, headers=self.headers, timeout=15)
+            data = api_res.json().get('data')
+
+            if not data: return None
+
+            video_info = data.get('video_info_list', [])
+            return {
+                'title': data.get('name'),
+                'price': data.get('price') / 100000,
+                'original_price': data.get('price_before_discount', 0) / 100000,
+                'video_url': video_info[0].get('video_url') if video_info else None,
+                'image_url': f"https://down-br.img.susercontent.com/file/{data.get('image')}"
+            }
+
+        except Exception as e:
+            logger.error(f"Erro na Shopee: {e}")
+            return None
+
             # 1. Resolve o link curto (br.shp.ee) para o link real
             session = requests.Session()
             res = session.get(url, headers=self.headers, allow_redirects=True, timeout=15)
