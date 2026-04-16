@@ -32,7 +32,7 @@ class VideoExtractor:
             return 'instagram'
         return 'unknown'
 
-    def extract_video(self, url: str) -> Optional[Dict]:
+    def extract_shopee_video(self, url: str) -> Optional[Dict]:
         """Lógica principal para Shopee (Links curtos, Produtos e Vídeos)"""
         try:
             session = requests.Session()
@@ -65,7 +65,8 @@ class VideoExtractor:
             # 4. Consulta a API oficial da Shopee
             api_url = f"https://shopee.com.br/api/v4/item/get?itemid={item_id}&shopid={shop_id}"
             api_res = session.get(api_url, headers=self.headers, timeout=20)
-            data = api_res.json().get('data')
+            data_json = api_res.json()
+            data = data_json.get('data')
 
             if not data:
                 return None
@@ -73,7 +74,7 @@ class VideoExtractor:
             video_info = data.get('video_info_list', [])
             return {
                 'title': data.get('name'),
-                'price': data.get('price') / 100000,
+                'price': data.get('price', 0) / 100000,
                 'original_price': data.get('price_before_discount', 0) / 100000,
                 'video_url': video_info[0].get('video_url') if video_info else None,
                 'image_url': f"https://down-br.img.susercontent.com/file/{data.get('image')}"
@@ -82,4 +83,12 @@ class VideoExtractor:
         except Exception as e:
             logger.error(f"Erro na extração Shopee: {e}")
             return None
-                             
+
+    def cleanup_temp_files(self):
+        """Limpa arquivos temporários para não lotar o Render"""
+        try:
+            for file in self.temp_dir.glob("*"):
+                file.unlink()
+        except Exception as e:
+            logger.error(f"Erro ao limpar temporários: {e}")
+            
